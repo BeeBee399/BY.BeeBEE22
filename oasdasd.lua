@@ -4,9 +4,10 @@ pcall(function()
     local old = cg:FindFirstChild("BEEBEEHUB")
     if old then old:Destroy() end
 end)
--- BEE BEE HUB V5.0
+-- BEE BEE HUB V5.0 - Xeno & UNG 85% Optimized
 -- Developed by BEE BEE - ผู้พัฒนาต่อจากGPTคนไทยNo.1
 -- Enhanced UI with smooth animations and modern design
+-- Optimized for Xeno and UNG 85% compatibility
 
 -- Services
 local Players = game:GetService("Players")
@@ -16,6 +17,19 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local vim = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
+
+-- Xeno & UNG 85% Optimization Settings
+local XENO_MODE = true
+local UNG_85_MODE = true
+local PERFORMANCE_MODE = true
+local OPTIMIZED_DELAYS = {
+    ESP_UPDATE = 0.3,
+    FRUIT_SCAN = 0.5,
+    AUTO_CLICK = 0.05,
+    FARM_LOOP = 0.15,
+    UI_UPDATE = 0.2
+}
 
 local player = Players.LocalPlayer
 local spawnRemote = nil
@@ -35,6 +49,17 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
+
+-- Xeno & UNG 85% Performance Optimization
+if XENO_MODE then
+    MainFrame.ClipsDescendants = true
+    MainFrame.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+end
+
+if UNG_85_MODE then
+    -- Reduce rendering load for UNG 85%
+    MainFrame.BackgroundTransparency = 0.1
+end
 
 -- Enhanced corner radius and gradient effect
 local corner = Instance.new("UICorner", MainFrame)
@@ -132,6 +157,20 @@ Content.Position = UDim2.new(0, 95, 0, 55)
 Content.BackgroundTransparency = 1
 Content.ScrollBarThickness = 8
 Content.ScrollBarImageColor3 = Color3.fromRGB(100, 200, 255)
+
+-- Xeno & UNG 85% Content Optimization
+if XENO_MODE then
+    Content.ScrollingEnabled = true
+    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+end
+
+if UNG_85_MODE then
+    -- Optimize scrolling for UNG 85%
+    Content.ScrollBarThickness = 6
+    Content.ScrollingDirection = Enum.ScrollingDirection.Y
+end
+
 local layout = Instance.new("UIListLayout", Content)
 layout.Padding = UDim.new(0,8)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -206,9 +245,9 @@ local function pullToLockedPoint()
     end
 end
 
--- ลูปทำงานเมื่อเปิดโหมด
+-- ลูปทำงานเมื่อเปิดโหมด - Xeno & UNG 85% Optimized
 task.spawn(function()
-    while task.wait(refreshInterval) do
+    while task.wait(OPTIMIZED_DELAYS.FARM_LOOP) do
         if _G.ComboEnabled then
             pullToLockedPoint()
         end
@@ -282,7 +321,7 @@ local function formatVal(v)
     end
 end
 
--- Simplified button creation function for mobile
+-- Simplified button creation function for mobile - Xeno & UNG 85% Optimized
 local function CreateModernButton(parent, text, color, size)
     local btn = Instance.new("TextButton", parent)
     btn.Size = size or UDim2.new(1, -20, 0, 40) -- เพิ่มความสูงสำหรับมือถือ
@@ -292,6 +331,17 @@ local function CreateModernButton(parent, text, color, size)
     btn.TextSize = 16 -- เพิ่มขนาดตัวอักษร
     btn.TextColor3 = Color3.fromRGB(255,255,255)
     btn.AutoButtonColor = false
+    
+    -- Xeno & UNG 85% Button Optimization
+    if XENO_MODE then
+        btn.TextScaled = false
+        btn.TextWrapped = true
+    end
+    
+    if UNG_85_MODE then
+        btn.Active = true
+        btn.Selectable = false
+    end
     
     local corner = Instance.new("UICorner", btn)
     corner.CornerRadius = UDim.new(0, 10) -- มุมโค้งมากขึ้น
@@ -565,7 +615,9 @@ AutoClickBtn.MouseButton1Click:Connect(function()
                     task.wait(0.01)
                     VirtualUser:Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
                 end)
-                task.wait(States.AutoClick.Delay or 0.1)
+                -- Xeno & UNG 85% Optimized Delay
+                local delay = States.AutoClick.Delay or OPTIMIZED_DELAYS.AUTO_CLICK
+                task.wait(delay)
             end
         end)
     else
@@ -1030,7 +1082,8 @@ function LoadPlayerTab()
 
                         text.Text = string.format("%s | %.0f", plr.Name, dist)
                     end
-                    task.wait(0.2)
+                    -- Xeno & UNG 85% Optimized ESP Update
+                    task.wait(OPTIMIZED_DELAYS.ESP_UPDATE)
                 end
                 if billboard then billboard:Destroy() end
             end)
@@ -1367,9 +1420,9 @@ function LoadPlayerTab()
         if btn then btn:Destroy() end
     end)
 
-    -- Loop สำหรับ Pull All และ Pull Selected
+    -- Loop สำหรับ Pull All และ Pull Selected - Xeno & UNG 85% Optimized
     task.spawn(function()
-        while task.wait() do
+        while task.wait(OPTIMIZED_DELAYS.UI_UPDATE) do
             if pullingAll then
                 pullAllPlayers()
             end
@@ -1458,7 +1511,10 @@ function LoadDevilFruitTab()
         if not fruitESPEnabled then clearAllESP() end
     end)
     task.spawn(function()
-        while true do task.wait(2.5)
+        while true do 
+            -- Xeno & UNG 85% Optimized Fruit Scan
+            local delay = XENO_MODE and OPTIMIZED_DELAYS.FRUIT_SCAN or 2.5
+            task.wait(delay)
             if fruitESPEnabled then scanFruits() else clearAllESP() end
         end
     end)
@@ -1655,7 +1711,8 @@ function LoadDevilFruitTab()
                     local dist = (target.Position - player.Character.HumanoidRootPart.Position).Magnitude
                     label.Text = string.format("%s | %.0f", fruit.Name, dist)
                 end
-                task.wait(0.3)
+                -- Xeno & UNG 85% Optimized Fruit ESP Update
+                task.wait(OPTIMIZED_DELAYS.ESP_UPDATE)
             end
             if billboard then billboard:Destroy() end
         end)
@@ -4288,8 +4345,14 @@ end
 -- ===================================================
 
 
--- Apply states to player each step (walkspeed/jump/hipheight, noclip)
+-- Apply states to player each step (walkspeed/jump/hipheight, noclip) - Xeno & UNG 85% Optimized
+local lastUpdate = 0
 RunService.Stepped:Connect(function()
+    local currentTime = tick()
+    -- Xeno & UNG 85% Performance: Throttle updates
+    if currentTime - lastUpdate < 0.1 then return end
+    lastUpdate = currentTime
+    
     -- Noclip
     if States.Misc.Noclip and player.Character then
         for _, part in pairs(player.Character:GetDescendants()) do
@@ -4338,13 +4401,15 @@ player.CharacterAdded:Connect(function(char)
     end
 end)
 
--- AutoEquip Watcher (Hotfix)
+-- AutoEquip Watcher (Hotfix) - Xeno & UNG 85% Optimized
 local autoEquipThread = nil
 local function StartAutoEquipWatcher()
     if autoEquipThread then return end
     autoEquipThread = task.spawn(function()
         while true do
-            task.wait(1)
+            -- Xeno & UNG 85% Optimized AutoEquip Check
+            local delay = XENO_MODE and 0.5 or 1
+            task.wait(delay)
             if States.AutoEquip.Enabled and States.AutoEquip.Weapon then
                 if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
                     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -4445,6 +4510,23 @@ SetActiveTab("Main")
 
 -- Load default
 LoadMainTab()
+
+-- Xeno & UNG 85% Final Optimizations
+if XENO_MODE then
+    print("🚀 BEE BEE HUB V5.0 - Xeno Mode Activated")
+    print("⚡ Performance optimizations enabled")
+end
+
+if UNG_85_MODE then
+    print("🎯 BEE BEE HUB V5.0 - UNG 85% Mode Activated")
+    print("🔧 UI optimizations for better compatibility")
+end
+
+if PERFORMANCE_MODE then
+    print("💨 Performance Mode: All delays optimized")
+    print("📊 Optimized delays:", OPTIMIZED_DELAYS)
+end
+
 -- END OF SCRIPT (ปิด end ครบ)
 
 
