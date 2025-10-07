@@ -447,7 +447,9 @@ local States = {
     },
     Fruit = { -- 👈 เพิ่ม block นี้เข้าไป
         AutoBarrel = false,
-        BarrelDelay = 0.1
+        BarrelDelay = 0.1,
+        AutoClaimSam = false,
+        SamDelay = 1
     }
 }
 
@@ -821,94 +823,197 @@ end)
     end)
 
     -----------------------------------------------------------------
-    -- AUTO KILL MONSTERS
+    -- ESP FRUITS (ย้ายจาก DevilFruit tab)
     -----------------------------------------------------------------
-    local autoKillEnabled = false
-    local autoKillThread = nil
+    local fruitEspEnabled = false
+    local fruitEspConnections = {}
     
-    local AutoKillBtn = CreateModernButton(Content, "⚔️ AutoKill: OFF", Color3.fromRGB(170, 0, 0))
-    
-    AutoKillBtn.MouseButton1Click:Connect(function()
-        autoKillEnabled = not autoKillEnabled
-        if autoKillEnabled then
-            AutoKillBtn.Text = "⚔️ AutoKill: ON"
-            AutoKillBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-            
-            -- เริ่ม AutoKill loop
-            if autoKillThread then
-                task.cancel(autoKillThread)
-            end
-            
-            autoKillThread = task.spawn(function()
-                while autoKillEnabled do
-                    pcall(function()
-                        local enemiesFolder = workspace:FindFirstChild("Enemies")
-                        if enemiesFolder then
-                            -- หามอนที่ยังมีชีวิตอยู่
-                            local aliveMonsters = {}
-                            for name, _ in pairs(thugNames) do
-                                local monster = enemiesFolder:FindFirstChild(name)
-                                if monster and monster:FindFirstChild("Humanoid") and monster:FindFirstChild("HumanoidRootPart") then
-                                    local humanoid = monster.Humanoid
-                                    if humanoid.Health > 0 then
-                                        table.insert(aliveMonsters, monster)
-                                    end
-                                end
-                            end
-                            
-                            if #aliveMonsters > 0 then
-                                -- เลือกมอนตัวแรก
-                                local targetMonster = aliveMonsters[1]
-                                local targetHRP = targetMonster.HumanoidRootPart
-                                
-                                -- TP ไปหลังมอน (ไม่ให้มอนตีเราได้)
-                                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                    local playerHRP = player.Character.HumanoidRootPart
-                                    
-                                    -- รอให้มอนตาย + ล็อกตามมอน + หันหน้าไปหามอน
-                                    local startTime = tick()
-                                    while autoKillEnabled and targetMonster.Parent and targetMonster:FindFirstChild("Humanoid") and targetMonster.Humanoid.Health > 0 do
-                                        -- ล็อกตามมอนไปด้วย (TP ไปหลังมอนตลอด)
-                                        if targetMonster:FindFirstChild("HumanoidRootPart") then
-                                            local behindPosition = targetHRP.CFrame * CFrame.new(0, 2, -5)
-                                            playerHRP.CFrame = behindPosition
-                                            
-                                            -- หันหน้าไปหามอน
-                                            local lookDirection = (targetHRP.Position - playerHRP.Position).Unit
-                                            local lookCFrame = CFrame.lookAt(playerHRP.Position, playerHRP.Position + lookDirection)
-                                            playerHRP.CFrame = lookCFrame
-                                        end
-                                        
-                                        task.wait(0.1)
-                                        -- ตรวจสอบ timeout (30 วินาที)
-                                        if tick() - startTime > 30 then
-                                            break
-                                        end
-                                    end
-                                    
-                                    -- รอสักครู่ก่อนไปหาตัวถัดไป
-                                    task.wait(0.5)
-                                end
-                            else
-                                -- ไม่มีมอนที่ยังมีชีวิต รอสักครู่
-                                task.wait(2)
-                            end
-                        else
-                            -- ไม่มี Enemies folder รอสักครู่
-                            task.wait(1)
-                        end
-                    end)
+    local function createFruitESP(fruit)
+        if not fruit:IsDescendantOf(workspace) then return end
+        if fruit:FindFirstChild("FruitESP") then return end
+
+        local target = fruit:FindFirstChild("Handle") or fruit.PrimaryPart or (fruit:IsA("BasePart") and fruit)
+        if not target then return end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "FruitESP"
+        billboard.Size = UDim2.new(0,200,0,50)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = target
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.Parent = fruit
+
+        local label = Instance.new("TextLabel", billboard)
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255,255,0)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.GothamBold
+        label.TextScaled = false
+        label.TextSize = 14
+
+        task.spawn(function()
+            while billboard.Parent and fruitEspEnabled do
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and target then
+                    local dist = (target.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    label.Text = string.format("%s | %.0f", fruit.Name, dist)
                 end
-            end)
-        else
-            AutoKillBtn.Text = "⚔️ AutoKill: OFF"
-            AutoKillBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-            
-            -- หยุด AutoKill
-            if autoKillThread then
-                task.cancel(autoKillThread)
-                autoKillThread = nil
+                task.wait(0.3)
             end
+            if billboard then billboard:Destroy() end
+        end)
+    end
+
+    local function enableFruitESP()
+        fruitEspEnabled = true
+        for _, obj in pairs(workspace:GetChildren()) do
+            if string.find(obj.Name, "Fruit") then
+                createFruitESP(obj)
+            end
+        end
+        fruitEspConnections["Added"] = workspace.ChildAdded:Connect(function(obj)
+            if fruitEspEnabled and string.find(obj.Name, "Fruit") then
+                task.wait(0.5)
+                createFruitESP(obj)
+            end
+        end)
+    end
+
+    local function disableFruitESP()
+        fruitEspEnabled = false
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:FindFirstChild("FruitESP") then
+                obj.FruitESP:Destroy()
+            end
+        end
+        for _,con in pairs(fruitEspConnections) do
+            if con then con:Disconnect() end
+        end
+        fruitEspConnections = {}
+    end
+
+    local fruitEspBtn = CreateModernButton(Content, "🍎 ESP Fruits: OFF", Color3.fromRGB(170,0,0))
+    fruitEspBtn.MouseButton1Click:Connect(function()
+        fruitEspEnabled = not fruitEspEnabled
+        fruitEspBtn.Text = "🍎 ESP Fruits: " .. (fruitEspEnabled and "ON" or "OFF")
+        fruitEspBtn.BackgroundColor3 = fruitEspEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
+        if fruitEspEnabled then enableFruitESP() else disableFruitESP() end
+    end)
+
+    -----------------------------------------------------------------
+    -- AUTO CLAIM SAM (ย้ายจาก DevilFruit tab)
+    -----------------------------------------------------------------
+    local autoClaimSamThread = nil
+
+    local function StartAutoClaimSam()
+        if autoClaimSamThread then return end
+        autoClaimSamThread = task.spawn(function()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local RemoteContainer = ReplicatedStorage:FindFirstChild("Connections")
+            if not RemoteContainer then
+                warn("❌ ไม่พบ ReplicatedStorage.Connections")
+                return
+            end
+            local ClaimRemote = RemoteContainer:FindFirstChild("Claim_Sam")
+            if not ClaimRemote then
+                warn("❌ ไม่พบ Remote 'Claim_Sam'")
+                return
+            end
+
+            while States.Fruit.AutoClaimSam do
+                local success, err = pcall(function()
+                    ClaimRemote:FireServer("Claim1")
+                end)
+                if not success then
+                    warn("❌ Error claiming Sam:", err)
+                end
+                task.wait(States.Fruit.SamDelay or 1)
+            end
+            autoClaimSamThread = nil
+        end)
+    end
+
+    local autoClaimSamBtn = CreateModernButton(Content, "🎁 Auto Claim Sam: " .. (States.Fruit.AutoClaimSam and "ON" or "OFF"), 
+        States.Fruit.AutoClaimSam and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0))
+    autoClaimSamBtn.MouseButton1Click:Connect(function()
+        States.Fruit.AutoClaimSam = not States.Fruit.AutoClaimSam
+        autoClaimSamBtn.Text = "🎁 Auto Claim Sam: " .. (States.Fruit.AutoClaimSam and "ON" or "OFF")
+        autoClaimSamBtn.BackgroundColor3 = States.Fruit.AutoClaimSam and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
+        if States.Fruit.AutoClaimSam then
+            StartAutoClaimSam()
+        end
+    end)
+
+    -----------------------------------------------------------------
+    -- DROP COMPASS (ย้ายจาก DevilFruit tab)
+    -----------------------------------------------------------------
+    local dropCompassEnabled = false
+    local dropCompassThread = nil
+
+    local function startDropCompassLoop()
+        if dropCompassThread then return end
+        dropCompassThread = task.spawn(function()
+            while dropCompassEnabled do
+                local backpack = player:FindFirstChild("Backpack")
+                local character = player.Character
+                if backpack and character and character:FindFirstChild("Humanoid") then
+                    local humanoid = character:FindFirstChild("Humanoid")
+                    local compassFound = false
+                    
+                    -- หา Compass ใน backpack
+                    for _, tool in ipairs(backpack:GetChildren()) do
+                        if not dropCompassEnabled then break end
+                        if tool:IsA("Tool") and string.find(string.lower(tool.Name), "compass") then
+                            compassFound = true
+                            local success, err = pcall(function()
+                                humanoid:EquipTool(tool)
+                                task.wait(0.1)
+                                if tool.Parent == character then
+                                    -- ใช้ Backspace เพื่อทิ้ง
+                                    local VIM = game:GetService("VirtualInputManager")
+                                    VIM:SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
+                                    task.wait(0.05)
+                                    VIM:SendKeyEvent(false, Enum.KeyCode.Backspace, false, game)
+                                end
+                            end)
+                            if not success then
+                                warn("❌ Error dropping compass:", err)
+                            end
+                            task.wait(0.2) -- รอระหว่างการทิ้งแต่ละอัน
+                        end
+                    end
+                    
+                    -- ถ้าไม่เจอ Compass ให้รอนานหน่อย
+                    if not compassFound then
+                        task.wait(1)
+                    end
+                else
+                    task.wait(0.5)
+                end
+            end
+            dropCompassThread = nil
+        end)
+    end
+
+    local function stopDropCompassLoop()
+        dropCompassEnabled = false
+        if dropCompassThread then
+            task.cancel(dropCompassThread)
+            dropCompassThread = nil
+        end
+    end
+
+    local dropCompassBtn = CreateModernButton(Content, "🗺️ Drop Compass: OFF", Color3.fromRGB(170, 0, 0))
+    dropCompassBtn.MouseButton1Click:Connect(function()
+        dropCompassEnabled = not dropCompassEnabled
+        if dropCompassEnabled then
+            dropCompassBtn.Text = "🗺️ Drop Compass: ON"
+            dropCompassBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            startDropCompassLoop()
+        else
+            dropCompassBtn.Text = "🗺️ Drop Compass: OFF"
+            dropCompassBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+            stopDropCompassLoop()
         end
     end)
 
@@ -1734,140 +1839,11 @@ function LoadDevilFruitTab()
         fruitEspConnections = {}
     end
 
-    -----------------------------------------------------
-    -- ปุ่ม ESP Fruits (บนสุด)
-    -----------------------------------------------------
-    local fruitEspBtn = Instance.new("TextButton", Content)
-    fruitEspBtn.Size = UDim2.new(1, -20, 0, 30)
-    fruitEspBtn.Text = "ESP Fruits: OFF"
-    fruitEspBtn.BackgroundColor3 = Color3.fromRGB(170,0,0)
-    fruitEspBtn.TextColor3 = Color3.new(1,1,1)
-    fruitEspBtn.Font = Enum.Font.GothamBold
-    fruitEspBtn.TextSize = 14
-    Instance.new("UICorner", fruitEspBtn).CornerRadius = UDim.new(0,6)
+    -- ESP Fruits ย้ายไป Main tab แล้ว
 
-    fruitEspBtn.MouseButton1Click:Connect(function()
-        fruitEspEnabled = not fruitEspEnabled
-        fruitEspBtn.Text = "ESP Fruits: " .. (fruitEspEnabled and "ON" or "OFF")
-        fruitEspBtn.BackgroundColor3 = fruitEspEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-        if fruitEspEnabled then enableFruitESP() else disableFruitESP() end
-    end)
+    -- Auto Claim Sam ย้ายไป Main tab แล้ว
 
-	-----------------------------------------------------
--- Auto Claim Sam (UI + Logic)
------------------------------------------------------
-local autoClaimSamThread = nil
-
-local function StartAutoClaimSam()
-    if autoClaimSamThread then return end
-    autoClaimSamThread = task.spawn(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local RemoteContainer = ReplicatedStorage:FindFirstChild("Connections")
-        if not RemoteContainer then
-            warn("❌ ไม่พบ ReplicatedStorage.Connections")
-            return
-        end
-        local ClaimRemote = RemoteContainer:FindFirstChild("Claim_Sam")
-        if not ClaimRemote then
-            warn("❌ ไม่พบ Remote 'Claim_Sam'")
-            return
-        end
-
-        while States.Fruit.AutoClaimSam do
-            pcall(function()
-                ClaimRemote:FireServer("Claim1") -- 🔑 ปรับ arg ตรงนี้ให้ตรงกับที่ sniff เจอ
-            end)
-            task.wait(States.Fruit.SamDelay or 1)
-        end
-        autoClaimSamThread = nil
-    end)
-end
-
-local autoClaimSamBtn = Instance.new("TextButton", Content)
-autoClaimSamBtn.Size = UDim2.new(1, -20, 0, 30)
-autoClaimSamBtn.Text = "Auto Claim Sam: " .. (States.Fruit.AutoClaimSam and "ON" or "OFF")
-autoClaimSamBtn.BackgroundColor3 = States.Fruit.AutoClaimSam and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-autoClaimSamBtn.TextColor3 = Color3.new(1,1,1)
-autoClaimSamBtn.Font = Enum.Font.GothamBold
-autoClaimSamBtn.TextSize = 14
-Instance.new("UICorner", autoClaimSamBtn).CornerRadius = UDim.new(0,6)
-
-autoClaimSamBtn.MouseButton1Click:Connect(function()
-    States.Fruit.AutoClaimSam = not States.Fruit.AutoClaimSam
-    autoClaimSamBtn.Text = "Auto Claim Sam: " .. (States.Fruit.AutoClaimSam and "ON" or "OFF")
-    autoClaimSamBtn.BackgroundColor3 = States.Fruit.AutoClaimSam and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-    if States.Fruit.AutoClaimSam then
-        StartAutoClaimSam()
-    end
-end)
-
--- ===================== DROP COMPASS =====================
-local dropCompassEnabled = false
-local dropCompassThread = nil
-
-local function startDropCompassLoop()
-    if dropCompassThread then return end
-    dropCompassThread = task.spawn(function()
-        while dropCompassEnabled do
-            local backpack = player:FindFirstChild("Backpack")
-            local character = player.Character
-            if backpack and character and character:FindFirstChild("Humanoid") then
-                local humanoid = character:FindFirstChild("Humanoid")
-                
-                -- หา Compass ใน backpack
-                for _, tool in ipairs(backpack:GetChildren()) do
-                    if not dropCompassEnabled then break end
-                    if tool:IsA("Tool") and string.find(string.lower(tool.Name), "compass") then
-                        pcall(function()
-                            humanoid:EquipTool(tool)
-                            task.wait(0.1)
-                            if tool.Parent == character then
-                                -- ใช้ Backspace เพื่อทิ้ง
-                                local VIM = game:GetService("VirtualInputManager")
-                                VIM:SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
-                                task.wait(0.05)
-                                VIM:SendKeyEvent(false, Enum.KeyCode.Backspace, false, game)
-                            end
-                        end)
-                        task.wait(0.2) -- รอระหว่างการทิ้งแต่ละอัน
-                    end
-                end
-            end
-            task.wait(0.5) -- รอสักครู่ก่อนเช็คใหม่
-        end
-        dropCompassThread = nil
-    end)
-end
-
-local function stopDropCompassLoop()
-    dropCompassEnabled = false
-    if dropCompassThread then
-        task.cancel(dropCompassThread)
-        dropCompassThread = nil
-    end
-end
-
-local dropCompassBtn = Instance.new("TextButton", Content)
-dropCompassBtn.Size = UDim2.new(1, -20, 0, 30)
-dropCompassBtn.Text = "🗺️ Drop Compass: OFF"
-dropCompassBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-dropCompassBtn.TextColor3 = Color3.new(1,1,1)
-dropCompassBtn.Font = Enum.Font.GothamBold
-dropCompassBtn.TextSize = 14
-Instance.new("UICorner", dropCompassBtn).CornerRadius = UDim.new(0,6)
-
-dropCompassBtn.MouseButton1Click:Connect(function()
-    dropCompassEnabled = not dropCompassEnabled
-    if dropCompassEnabled then
-        dropCompassBtn.Text = "🗺️ Drop Compass: ON"
-        dropCompassBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        startDropCompassLoop()
-    else
-        dropCompassBtn.Text = "🗺️ Drop Compass: OFF"
-        dropCompassBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-        stopDropCompassLoop()
-    end
-end)
+    -- Drop Compass ย้ายไป Main tab แล้ว
 
 
     -----------------------------------------------------
@@ -3053,6 +3029,41 @@ local function StopFruitThreads()
     if autoBarrelThread then
         task.cancel(autoBarrelThread)
         autoBarrelThread = nil
+    end
+end
+
+-- หยุดทุกอย่างเวลาออกจาก Main Tab
+local function StopMainThreads()
+    -- หยุด Auto Claim Sam
+    if States.Fruit.AutoClaimSam then
+        States.Fruit.AutoClaimSam = false
+        if autoClaimSamThread then
+            task.cancel(autoClaimSamThread)
+            autoClaimSamThread = nil
+        end
+    end
+    
+    -- หยุด Drop Compass
+    if dropCompassEnabled then
+        dropCompassEnabled = false
+        if dropCompassThread then
+            task.cancel(dropCompassThread)
+            dropCompassThread = nil
+        end
+    end
+    
+    -- หยุด ESP Fruits
+    if fruitEspEnabled then
+        fruitEspEnabled = false
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:FindFirstChild("FruitESP") then
+                obj.FruitESP:Destroy()
+            end
+        end
+        for _,con in pairs(fruitEspConnections) do
+            if con then con:Disconnect() end
+        end
+        fruitEspConnections = {}
     end
 end
 
@@ -4335,24 +4346,28 @@ end)
 
 WeaponBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadSwordsTab()
     SetActiveTab("Weapon")
 end)
 
 PlayerBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadPlayerTab()
     SetActiveTab("Player")
 end)
 
 DevilFruitBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadDevilFruitTab()
     SetActiveTab("DevilFruit")
 end)
 
 MiscBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadMiscTab()
     SetActiveTab("Misc")
 end)
@@ -4366,12 +4381,14 @@ end)
 
 TeleportBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadTPTab()
     SetActiveTab("Teleport")
 end)
 
 ServerBtn.MouseButton1Click:Connect(function()
     StopFruitThreads()
+    StopMainThreads()
     LoadServerTab()
     SetActiveTab("Server")
 end)
